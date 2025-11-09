@@ -1,0 +1,65 @@
+DO370v416 
+
+Point-01-# Products introduction:-
+
+- Product: Red Hat OpenShift Container Platform (RHOCP/OCP) 
+  version: v416 (OCPv416)
+  reference_doc: https://docs.redhat.com/en/documentation/openshift_container_platform/4.16
+
+- Product: Red Hat OpenShift Data Foundation (RHODF/ODF)
+  version: v416 (ODFv416)
+  reference_doc: https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/4.16
+  
+
+Point-02-# Classroom Environment & TOC:-
+- ODF Architecture  & Deployment (Internal & External)
+- Non-ODF solution [Dell provide - CSI/S3 API - Block/File/Object Storage].
+- ODF provide Enterprise Storage Services:-
+  - Block Storage
+  - File System Storage
+  - Object Storage
+  W.R.T application & Services (Cluster Services - Add-On Services)
+  
+*******************************************************************
+Red Hat OpenShift:-
+1- Cloud services editions
+ - Red Hat OpenShift Service on AWS     [PlatformUsed=AWS;POC=Amazon]
+ - Microsoft Azure Red Hat OpenShift    [PlatformUsed=Azure;POC=MS-Azure]
+ - Red Hat OpenShift Dedicated          [PlatformUsed=AWS/GCP;POC=RedHat]
+ - Red Hat OpenShift on IBM Cloud       [PlatformUsed=IBMCloud;POC=IBM]
+
+2- Self-managed editions
+ - Red Hat OpenShift Kubernetes Engine       [Basic-RHOKE]
+ - Red Hat OpenShift Container Platform      [Standard-RHOCP]
+ - Red Hat OpenShift Platform Plus           [Add-On;RHOPP]
+ - Red Hat OpenShift Virtualization Engine   [Add-On;RHOV]
+ 
+###  Kubernetes Vs OpenShift
+
+Lets discussed quickly w.r.t k8s (kubernetes). 
+  layer-06   End user application [Like banking application or BFSI level deployment]
+  layer-05   Add-on kubernetes services [Like - network/authentication/LB/monitoring/etc]
+  layer-04   Certified kubernetes orchestration tool (k8sV1.32)
+             [kubelet,kube-apiserver,kube-controller-manager,kube-scheduler,etcd]   
+			 kubelet only systemd process here, rest all are deployed as container.
+  layer-03   Install- Container Run Time [containerd,crio,docker,Miratis Container Runtime etc]
+              crio also systemd process here- systemctl status crio/kubelet
+  layer-02   Install- Operating System (OS) - RHEL/SUSE - Enterprise Linux.
+  layer-01   hardware/Cloud/Virtualization 
+  
+https://kubernetes.io/
+https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+
+
+Lets discussed quickly w.r.t OpenShift.
+  layer-07   End user application [Like banking application or BFSI level deployment]
+  layer-06   Red Hat openshift Platform Plus [AI,ACM,ACS,Quay,3sacleAPI,kubeVirt etc]
+  layer-05   Red Hat OpenShift Container Platform (RHOCP - Red Hat OpenShift Container Platform)
+  layer-04   Red Hat openshift Kubernetes Engine (RHOKE - Red Hat OpenShift Kubernetes Engine)
+  layer-04   Certified kubernetes orchestration tool (k8sV1.32)
+  layer-03   Install- Container Run Time (crio)
+  layer-02   Install- Red Hat Enterprise Linux CoreOS 
+  layer-01   hardware/Cloud/Virtualization 
+  
+*******************************************************************

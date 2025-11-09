@@ -1,0 +1,58 @@
+#Products:-
+- Red Hat OpenShift COntainer Platform (RHOCPv416).
+- Red Hat OpenShift Data Foundation (RHODFv416).
+- Classroom Environment (Pending discussion):-
+
+Unit-1- Architecture Overview and Deployment of OpenShift Data Foundation by Using Internal Mode.
+- ODF - OpenShift Data Foundation.
+- ODF is a software define storage solution.
+- HOw ODF integrated with Red Hat OpenShift (RHOSP).
+- It provides Persistent Storage and it support (Block/File/Object storgae).
+
+- Default nature of container is ephemeral (Tmp Storage).
+- ODF provides Enterprise Storage solution to Red Hat OpenShift (RHOKE/RHOSP/RHOPP).
+- ODFv416 is based on technologies like:-
+ 1- Ceph (Higly scalable distributed storage - SDS)
+ 2- NooBaa (Object data service / s3 gateway)
+ 3- Rook (Operator for managing Ceph)
+ 4- CSI (COntainer Storage INterface)
+ 
+ODF (Internal)
+- Local Storage Operator
+- ODF Operator
+
+
+Chapter 1 | Architecture Overview and Deployment of OpenShift Data Foundation by Using Internal Mode
+
+Figure 1.2: OpenShift Data Foundation architecture
+
+1-) Storage Backend (Actual Storage):-
+ - Local Disk: Direct-attached block storage on Physical node.
+ - Cloud Storage Block - Cloud providers-managed block volume (Eg: AWS EBS, Azure Disk).
+ - Hypervisor Block Storage - Block device exposed from virtulization platform.
+ Local OPerator managing above block storage for ODF deployment.
+ 
+ - Cloud Object Storage (Via only NooBaa) - NooBaa via MCG can connect to any Object
+   Storage provider (AWS/Azure/GCP/IBM etc)
+ 
+2-) Core Storage services:-
+  2.1 Cpeh Service (Distributed Storage System):-
+    - RADOS - Reliable Autonomic Distributed Object Store - Core Staore engine of Ceph.
+    - RBD - RADOS Block Device - Provide Block Storage 
+	- CpehFS - Ceph File system - NAS level storage 
+	- RGW - RADOS Gateway - S3 compatible Object Storage.
+
+  2.2 NooBaa Service:-
+    - NooBaa enables MCG (Multicloud Object Gatway), managing S3-compatible bucket from:
+      - Local Ceph RGW 
+      - External cloud object storage (Eg:- AWS S3, Azure Blob etc ).
+3-) CLient & CSI Plugins (CSI - COntainer Storage Plugins).
+    - CSI plugins provides interface to use any Storage solution (Only BLock/File Storge )
+    - RBD client - Communicate with RADOS Block devices.
+    - CephFS CLient - MOunt ceph file system.
+	
+	Note: These client are integrated into kubernetes via SCI plugins, which allow container/VM (KubeVirt) 
+	      to mount storage volume as Persistent Volume Claim (PVC).
+
+4-) Operators:-
+  		  
