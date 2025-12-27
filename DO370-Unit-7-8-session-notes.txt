@@ -1,0 +1,312 @@
+#Unit-7-) 
+Part-03- Adding Disks to the OpenShift Data Foundation Cluster:-
+
+Point-01-#
+- Why do we add disks to ODF?
+  Increase storage capacity of an existing "OpenShift Data Foundation" cluster.
+
+- Why this matters?
+  - ODF (Ceph-based) storage is capacity-driven 
+  - When application PVCs/OBCs grow, storage must be scale without downtime.
+  - ODF supports horizontal scaling (More disks / more worker nodes).
+  
+  Example:-
+  -logging stack (Loki) starts consuming more block storage, Existing ODF cluster is almost 70%+ used.
+   Need to add additional DIsk/nodes to increate the capacity.
+
+
+Point-02-#   
+Increasing cluster capacity:- ODF can scale in three ways (Internal deployment).
+1- Add disks to existing storage nodes
+2- Enable unused disks already attached 
+3- Add new storage nodes.
+
+
+Point-03-# Internal Deployment rules:-
+Before adding disks, understand these hard rules.
+
+1st- Disk homogeneity (Mandatory):-
+ - All disks must be same size and type.
+ - ODF does NOT support heterogeneous disks.
+
+Example:- Mixing 500 GB + 1 TB disks -> NOT allowed.
+
+
+2nd- Disk Count Limits:-
+ - Maximum 9 disks per node allowed.
+ - more disks -> Longer recovery time duing node failure.
+
+3rd- Failure Domain matter:-
+ - with 3 failure domains -> Add disk in mutiples of 3 
+ - with <3 failure domains + flexible scaling enabled -> Add any number.
+
+Point-04-#  Enabling existing disks - This entire process is automated, driven by the "Local Storgae Operator" 
+ - Local Storgae Operator
+ - LocalVolumeDiscovery 
+ - LocalVolumeDiscoveryResult 
+ - LocalVolume 
+ - PersistentVolume(PVs)
+ - Ceph OSD pods 
+ 
+Point-05-# Disk Discovery Process 
+Step-01:- Disk Discovery starts
+  - LSO runs discovery daemons on only storage nodes.
+  - Controlled by "LocalVolumeDiscovery" object 
+  - Uses nodeSelector to target ODF nodes.
+ 
+ FYI- Every storage node runs a background process scanning "/dev/*" for unused disks.
+
+Step-02:- Discovery results per node.
+ - For each nodes, OCP creates "LocalVolumeDiscoveryResult"
+ - This object conatins:-
+   - Disk device ID.
+   - Device path 
+   - Disk size 
+   - Disk state (Available/In-Use)
+
+
+Step-03:- Inspect Discovered Disks:-
+ Each disk entry shows:-
+ - nodeName -> Node where disk exists 
+ - deviceID -> Unique disk identifier 
+ - path     -> Example:- /dev/sdX
+ - size     -> Disk size 
+ - state    -> Available/In-Use
+ 
+ Output:- A 100GiB unused disk on worker01 is marked as Available -> Ready to be used by ODF.
+ 
+
+Point-06-# Enabling the Disks 
+ - Discovered disks are NOT used automatically.
+ 
+ - TO enable them:-
+   - Create a LocalVolume object 
+   - provide device paths 
+   - Match storage nodes via label selector.
+ 
+ - What LocalVolume does ?
+   - Converts raw disks -> PersistentVolume (PVs).
+   - StorgaeClass = localvolume 
+   - VolumeMode = Block 
+   
+   One disk = One PV 
+   
+
+Point-07-# PersistentVolume Creation:-
+After LocalVolume is applied 
+ - OCP creates one PV per disk 
+ - Initial PV status = Avialable 
+ 
+  Example PV stats:-
+  local-pv-xxxx 100Gi Available
+  local-pv-yyyy 100Gi Bound 
+
+Point-08-# Binding PVs to Ceph (ODF side).
+  StorageCluster.spec.storageDeviceSets.count 
+  
+  How capacity is added.
+  - Increase count by number of new disks
+  - Each count = One Ceph OSD 
+  
+  Example:-
+   Existing OSDs = 3
+   Added disks = 3
+   New COUnt = 6
+   
+
+Point-09-# Ceph OSD pods creation.
+ Once count increases:-
+  - New rook-ceph-osd pods are created 
+  - Each pod uses one PV 
+  - OSD pods must reach "Running" state 
+  
+ Verification:-
+  - app=rook-ceph-osd
+  - Each OSD corresponds to one disk.
+  
+
+Point-10-#PV Status change automatically:-
+When Ceph consumes the PV:-
+Available -> Bound
+
+This will confirms:-
+ - Disk is now part of Ceph cluster 
+ - Storage capacity is extended 
+ 
+
+Point-11-# Adding New Nodes (when Disks are not enough).
+  When to add nodes?
+   - Nodes already have max disks (9).
+   - CPU/ Memory pressure high (Disk Pressure high mean - Storage size issue).
+   - Need better failure isolation.
+   
+  FYI:- Node addition Flow 
+  1- Provision new machine 
+  2- Add them as OpenShift worker nodes 
+  3- Approve CSRs 
+  4- Label nodes as ODF storage nodes 
+  
+  oc get nodes -l cluster.ocs.openshift.io/openshift-storage=""
+  
+Point-12-# Auto-Discovery on New nodes 
+  Once labled
+  - LSO automatically:-
+    - Detects disks 
+	- Create discovery results
+	- Provisions LocalVolume (If LocalVolumeSet exists)
+	
+	FYI- Zero manual disk detection needed.
+	
+Point-13-# LocalVolumeSet Verification:-
+ LocalVolumeSet object shows:-
+  PROVISIONED -> Total disks used 
+  VOLUME_MODE -> Block 
+  
+  Provisioned: 6 
+  VOlumeMode: Block 
+  
+Point-14-# Verify ODF heath after expansion:-
+  Required runnings pods 
+   - csi-cephfsplugin
+   - csi-rbdplugin 
+   - rook-ceph-osd 
+   
+   ALl must be running.
+   
+   Also verify capacity from Web COnsole 
+   
+   initial state:-
+    3 nodes 
+	3 disks (100 GiB - each)
+	Total raw capacity = 300 Gi 
+	
+ Our action- Add 1 disk to each node (3 disks total).
+ 
+ Result:- 
+ 6 disks -> 6 OSDs 
+ Raw capacity = 600 GiB 
+ No application downtime
+ 
+ Key takeaways:-
+ - Disk discovery 
+ - LocalVolume enabled disks 
+ - One disk =  one PV = One OSD
+ - Flexible scaling must be planned before deployment
+ - Capacity expansion is online & safe.
+ 
+ 
+#######################################################
+Unit-8-# Troubleshooting OpenShift Data Foundation  
+  - Identifying Ceph Components
+  - Identifying and Replacing Failing Drives and Nodes
+  - Troubleshooting OpenShift Data Foundation Capacity Alerts
+
+####What is Ceph?  
+point-01-# Ceph is a Software-defined storage system.
+ - Ceph Provides - Block/File/Object storage using same backend.
+ - Its sacles horizontally (Add more nodes -> more capacity + performance)
+ 
+ Example:-
+  An OpenShift cluster starts with 3 worker nodes (3 disks each).
+  Later, you add 3 more nodes -> Ceph automatically rebalances data.
+  
+Point-02-# RADOS is the core of Ceph:-
+ - RADOS - Reliable Autonomic Distributed Object Store).
+ - RADOS is the Storage engine for Ceph.
+ 
+ Example:- 
+ Even when you create a PVC (Block Volume), data is internally stored as RADOS objects.
+ 
+
+#### How applications access ceph (Access methods).
+- Ceph supports three access type 
+ - Block Storage (RBD):-
+   - Used by Kubernetes (PVCs)
+   - Accesed via CSI driver 
+   - Provides ReadWriteOnce (RWO) volumes.
+   
+   Example:- 
+   PostgreSQL Pod -> PVC -> ceph RBD  -> OSDs 
+   
+   - Database pod get a raw block device 
+   - High IOPS, low latency 
+   - Used for databases, message queues (Like RabbitMQ, AMQ), VM disk.
+   
+ - File Storage (CephFS)
+  - File Storage 
+  - Supports RedWriteMany (RWX)
+  - Uses metadata servers (MDS)
+
+
+ - Object Storage (RGW - S3 compatible):-
+  - Accessed using S3 API 
+  - Uses Ceph RADOS Gateway (RGW)
+
+
+### MON (Monitor):-
+What it does?
+- Maintains cluster maps 
+- Controls cluster quorum 
+- Act as the brain of Ceph 
+
+Example:-
+Always run ODD number (3,5)
+
+3 Mons -> 1 node failure -> cluster still healthy 
+FYI- If quorum is lost -> Ceph stops serving IO
+  
+ 
+### OSD (Object Storage Daemon)
+- What it does:-
+ Storage actual data.
+ Handles replication, recovery, rebalancing
+
+Example:- 
+Disk failure on worker02 
+OSD masked Down 
+Ceph rebuild data on other OSDs.
+
+
+### MGR (Manager)
+What is does?
+ - It privides metrics and REST API 
+ - Feeds data to OpenShift COnsole 
+
+Example:-
+ - Storage dashboard 
+ - Capacity graphs 
+ - Health indicators 
+
+### MDS (Metadata server).
+What it does?
+ - Manage file metadata for CephFS
+ - Required only for file storage 
+ 
+ Example:-
+ Without MDS -> CephFS can not mount 
+
+
+### RGW (RADOS Gateway):-
+What is does ?
+ - Provides S3-compatible API 
+ - Used by Object Storage (ODF - NooBaa).
+
+
+Rook-Ceph Operator manages everything:-
+- Deploy MON,OSD,MGR,MDS,RGW
+- Uses kubernetes CRDs
+- Self-healing & autommated 
+
+Example:-
+Delete an OSD pod -> Operator recreates it automatically.
+
+
+CSI drivers enabled Kubernetes storage 
+Two main CSI components:-
+- CSI plugin -> Runs on all nodes 
+- CSI provisioner -> Manages PVC lifecycle 
+
+StorageClass -> PV -> PVC -> Deployment -> POD 
+ 
+ 
+   
