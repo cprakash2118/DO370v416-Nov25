@@ -1,0 +1,163 @@
+#Identifying and Replacing Failing Drives and Nodes:-
+Point-01-# What happens when disk or node fails (Big Picture)
+ - When a disk (OSD) or node fails in OpenShift Data Foundation (ODF): 
+   1- Ceph detects abnormal behavior (Slow I/O, Crashes, corruption).
+   2- Cluster health moves from HEALTH_OK -> HEALTH_WARN/HEALTH_ERR
+   3- Placement Groups (PGs) become degraded/undersized.
+   4- Ceph rebalance data automatically (To maintain replicas).
+   5- Admin Must:-
+     - Identifying the failling components
+	 - Remove it safely 
+	 - Monitor recovery until cluster is healthy again.
+	 
+
+Point-02-# Monitoring Storage recovery (After Disk/OSD changes)
+ What triggers recovery?
+  - Removing a failed OSD
+  - Adding a new disk 
+  - Replacing a node.
+  - changing disk layout.
+  
+  FYI - Ceph automatically redistributes data to meet the desired replica count.
+  
+  
+ -UI-Based monitoring (Via OpenShift Web Console).
+  Storage -> Data FOundation -> "OCS-Storagecluster".
+   You will observe:-
+    - Storage - Warning 
+	- Data Resiliency: Progressing 
+	- Activity: "Rebuiding data resiliency - X%"
+	Note:- Cluster remains in WARNING until resiliency recovery is completed.
+  
+  -CLI based Monitoring (Ceph Toolbox).
+    ceph status 
+	Live monitoring (ceph -w).
+	
+	
+Why cluster status (WARNING) during recovery?
+ - Ceph enforce this to:-
+   - Prevent unsafe removals 
+   - Avoid data loss 
+   - Ensure replica assurity.
+   
+   FYI- Admin action during recovery should be minimal unless required.
+   
+Replacing a failing node (NOt Just disk ):-
+- Node replacement is more serious than disk replacement.
+- When do you replace node?
+  - Repeated OSD crashes on the same node.
+  - Kernel I/O errors multiple disk.
+  - Hardware failure (NIC,HBA etc)
+  - Node unrechable 
+  
+
+5) Node replacement - Required Action:-
+ Step-1: Remove all OSDs from node.
+ FYI- Removing all OSD from a node automatically removes that node from the ceph cluster.
+ 
+ 
+6) WHat happens internally during node replacement?
+  - OLD OSDs -> Marked DOWN 
+  - PGs -> Become undersized
+  - Ceph start re-replication 
+  - New OSD join 
+  - PGs reblance 
+  - CLuster ruturn to HELATH_OK
+  FYI- This is automatic but must be monitored.
+  
+
+Example Scenario:-
+
+ Nodes "worker05" has 3 disks
+ all disks slow read I/O errors 
+ OSD crash repeatedly 
+ 
+ Action Taken:-
+ 1-Stop OSDs 
+ 2-Remove OSDs via "ocs-osd-removal"
+ 3-Delete nodes 
+ 4-Replace hardware 
+ 5-Add node Back 
+ 6-ODF provisions new OSDs
+ 7-Monitor recovery using "ceph -w"
+ 
+
+#######
+- Troubleshooting OpenShift Data Foundation Capacity Alerts
+  Why capacity alert exist in OpenShift data foundation?
+  - ODF continuosly monitor Ceph Cluster utilization (Why -> To prevent data loss and cluster corruption).
+    Cluster - StorageCluster part (ODF).
+	
+  - Ceph does not behave like normal disk storage:-
+    - It must reserve space for:-
+	 - Replication
+	 - Recovery 
+	 - Rebalancing 
+	 - Metadata updates 
+	 
+	If ceph runs out of space while writing metadata, cluster can become unrecoverable.
+	
+	SO ODF enforce progressive protection thresholds.
+
+- Capacity Thresholds - What happens at each level 
+    75% Capacity - Early warning state.
+   What happens:-
+   - CLuster fires:-
+      - CephClusterNearFull 
+      - CephClusterWarningState
+      - Possibly cephOSDNearFull 
+    What this means?
+     - Storage is still writing
+     - Ceph is warning
+    Note: You must plan to cleanup or expansion now.
+
+  Example:-
+   - Your OCS cluster is 100 TB   (OpenShift Container Storage -> Rook-ceph-operator/Noobaa-operator).
+   - 75 TB is consumed 
+   - Application still write normally
+   - snapshots and clones may silently gorw storage.
+     FYI- Consider this is the safest point to ACT.
+
+
+   80% Capacity - Critical Warning stage.
+    What happens?
+	  - CephClusterCriticallyFull alert fires.  
+	What this means ?
+	 - Ceph is approaching "self-protection" mode.
+	 - This is the last safe point before write lock (After this Cpeh cluster moved to ReadOnly).
+	 - Performance degradation may begin.
+	 
+	 Few points to be noted:-
+	  Backup jobs run overnight 
+	  snapshots grows rapidaly 
+	  Cluster hits 80% 
+	  
+	  Note: You must expand capacity or delete data immediately.
+	  
+   85% Capacity - Read-Only Enforcement.
+      What happens:-
+	    Cluster become READ-ONLY
+		Alert fired:-
+		  CephClusterReadOnly
+		  CephClusterErrorsState 
+		  
+		What this mean?
+		 no writes allowed 
+		 PVCs appears healthy, but:-
+		   Application fail
+		   Databased crash 
+		   PODs restart endlessly.
+		   
+		Note: NOw at this stage - deleting data is no longer possible.
+
+   97% Capacity - Potential data loss zone 
+   
+     Ceph cluster may never recove 
+	 
+   
+    
+   
+ 
+ 
+   
+  
